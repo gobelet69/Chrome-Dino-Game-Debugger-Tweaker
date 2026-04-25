@@ -51,9 +51,9 @@ A lightweight, draggable UI injected directly into the Chrome Dino game (chrome:
     const originalInvertDistance = dinoGame.config.invertDistance || 700;
     const originalGravity = dinoGame.tRex.config.gravity || 0.6;
     const originalJumpVelocity = dinoGame.tRex.config.initialJumpVelocity || -10;
-    const originalGapCoefficient = dinoGame.config.gapCoefficient || 0.6;
     const originalUpdate = dinoGame.update.bind(dinoGame);
 
+    // Hitbox visualization state
     let showHitboxes = false;
 
     // --- HELPER: PROTECT BUTTONS ---
@@ -70,23 +70,35 @@ A lightweight, draggable UI injected directly into the Chrome Dino game (chrome:
     }
 
     // --- HITBOX DRAWING LOGIC ---
+    // We hook into the game's update loop to draw hitboxes after each frame
     dinoGame.update = function() {
         originalUpdate();
         if (showHitboxes && this.playing) {
             const ctx = this.canvasCtx;
             ctx.save();
+            
+            // 1. Draw Dino Hitboxes (Red)
             ctx.strokeStyle = '#f00';
             ctx.lineWidth = 1;
             const tRexBox = new CollisionBox(this.tRex.xPos + 1, this.tRex.yPos + 1, this.tRex.config.width - 2, this.tRex.config.height - 2);
             ctx.strokeRect(tRexBox.x, tRexBox.y, tRexBox.width, tRexBox.height);
+
             const tRexSubBoxes = this.tRex.getCollisionBoxes();
-            tRexSubBoxes.forEach(box => { ctx.strokeRect(box.x + tRexBox.x, box.y + tRexBox.y, box.width, box.height); });
+            tRexSubBoxes.forEach(box => {
+                ctx.strokeRect(box.x + tRexBox.x, box.y + tRexBox.y, box.width, box.height);
+            });
+
+            // 2. Draw Obstacle Hitboxes (Green)
             ctx.strokeStyle = '#0f0';
             this.horizon.obstacles.forEach(obs => {
                 const obsBox = new CollisionBox(obs.xPos + 1, obs.yPos + 1, obs.typeConfig.width * obs.size - 2, obs.typeConfig.height - 2);
                 ctx.strokeRect(obsBox.x, obsBox.y, obsBox.width, obsBox.height);
-                obs.collisionBoxes.forEach(box => { ctx.strokeRect(box.x + obsBox.x, box.y + obsBox.y, box.width, box.height); });
+                
+                obs.collisionBoxes.forEach(box => {
+                    ctx.strokeRect(box.x + obsBox.x, box.y + obsBox.y, box.width, box.height);
+                });
             });
+            
             ctx.restore();
         }
     };
@@ -221,23 +233,9 @@ A lightweight, draggable UI injected directly into the Chrome Dino game (chrome:
     distLabel.appendChild(distInput); content.appendChild(distLabel);
     distInput.addEventListener('change', (e) => dinoGame.config.invertDistance = parseInt(e.target.value, 10));
 
-    const gapLabel = document.createElement('label');
-    gapLabel.style.display = 'flex'; gapLabel.style.alignItems = 'center'; gapLabel.style.marginBottom = '4px';
-    gapLabel.innerText = 'Gap Coeff: ';
-    const gapInput = document.createElement('input');
-    gapInput.type = 'number'; gapInput.step = '0.1'; gapInput.value = originalGapCoefficient; gapInput.style.width = '35px'; gapInput.style.fontSize = '8px'; gapInput.style.marginLeft = '4px';
-    gapLabel.appendChild(gapInput); content.appendChild(gapLabel);
-    gapInput.addEventListener('change', (e) => {
-        const val = parseFloat(e.target.value);
-        if(!isNaN(val)) {
-            dinoGame.config.gapCoefficient = val;
-            dinoGame.horizon.gapCoefficient = val;
-        }
-    });
-
     const speedLabel = document.createElement('label');
     speedLabel.style.display = 'flex'; speedLabel.style.alignItems = 'center'; speedLabel.style.marginBottom = '4px';
-    speedLabel.innerText = 'Speed:    ';
+    speedLabel.innerText = 'Speed:';
     const speedInput = document.createElement('input');
     speedInput.type = 'number'; speedInput.step = '0.5'; speedInput.value = parseFloat(dinoGame.currentSpeed.toFixed(2)); speedInput.style.width = '35px'; speedInput.style.fontSize = '8px'; speedInput.style.marginLeft = '4px';
     const speedSetBtn = document.createElement('button');
@@ -249,6 +247,7 @@ A lightweight, draggable UI injected directly into the Chrome Dino game (chrome:
     const invObj = createMenuCheckbox('Invincible', (e) => { dinoGame.gameOver = e.target.checked ? function() {} : originalGameOver; });
     content.appendChild(invObj.label);
 
+    // NEW: HITBOX OPTION
     const hitboxObj = createMenuCheckbox('Hitboxes', (e) => { showHitboxes = e.target.checked; });
     content.appendChild(hitboxObj.label);
 
@@ -287,7 +286,7 @@ A lightweight, draggable UI injected directly into the Chrome Dino game (chrome:
 
     const pauseBtn = document.createElement('button'); pauseBtn.innerText = 'Pause / Play'; styleMiniButton(pauseBtn); pauseBtn.style.fontSize = '7px'; pauseBtn.style.width = '100%'; pauseBtn.style.marginBottom = '6px';
     advContent.appendChild(pauseBtn);
-    pauseBtn.addEventListener('click', () => dinoGame.paused || !this.playing ? dinoGame.play() : dinoGame.stop());
+    pauseBtn.addEventListener('click', () => dinoGame.paused || !dinoGame.playing ? dinoGame.play() : dinoGame.stop());
 
     const scoreDiv = document.createElement('div'); scoreDiv.style.display = 'flex'; scoreDiv.style.alignItems = 'center'; scoreDiv.style.marginBottom = '4px';
     scoreDiv.innerHTML = '<label>Score:</label>';
@@ -315,7 +314,6 @@ A lightweight, draggable UI injected directly into the Chrome Dino game (chrome:
     resetAllBtn.addEventListener('click', () => {
         darkObj.checkbox.checked = false; dinoGame.invert = originalInvert; document.documentElement.classList.remove('inverted'); dinoGame.inverted = false;
         distInput.value = originalInvertDistance; dinoGame.config.invertDistance = originalInvertDistance;
-        gapInput.value = originalGapCoefficient; dinoGame.config.gapCoefficient = originalGapCoefficient; dinoGame.horizon.gapCoefficient = originalGapCoefficient;
         speedInput.value = originalSpeed; dinoGame.config.speed = originalSpeed; if (dinoGame.playing) dinoGame.currentSpeed = originalSpeed;
         invObj.checkbox.checked = false; dinoGame.gameOver = originalGameOver;
         hitboxObj.checkbox.checked = false; showHitboxes = false;
@@ -326,7 +324,7 @@ A lightweight, draggable UI injected directly into the Chrome Dino game (chrome:
     });
 
     document.body.appendChild(panel);
-    console.log("Dino Debugger V12 with Gap Density injected!");
+    console.log("Dino Debugger V11 with Hitboxes injected!");
 })();
 ```
 
