@@ -324,7 +324,6 @@ A lightweight, draggable UI injected directly into the Chrome Dino game (chrome:
     });
 
     document.body.appendChild(panel);
-    console.log("Dino Debugger V11 with Hitboxes injected!");
 })();
 ```
 
