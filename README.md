@@ -328,6 +328,7 @@ A lightweight, draggable UI injected directly into the Chrome Dino game (chrome:
     document.body.appendChild(panel);
     console.log("Dino Debugger V12 with Gap Density injected!");
 })();
+```
 
 ## Modding / Contributing
 
